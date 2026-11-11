@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cascade Lighting</title>
+<style>
+  :root { --bg:#111; --fg:#ddd; --mut:#888; --card:#1a1a1a; --key:#2a2a2a; --acc:#4da3ff; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui, sans-serif; }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  h1 { font-size:18px; margin:0 0 12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .tabs { display:flex; gap:6px; margin:0 0 14px; }
+  .tabs button.on { outline:2px solid var(--acc); }
+  .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+  .card { background:var(--card); border-radius:10px; padding:12px; }
+  .kb { position:relative; width:100%; max-width:860px; aspect-ratio:15.75/6.1; background:#0a0a0a; border-radius:12px; padding:1.2%; box-sizing:border-box; }
+  .key { position:absolute; border-radius:4px; background:var(--key); box-shadow: inset 0 0 0 1px #000; display:flex; align-items:center; justify-content:center; font-size:10px; color:#aaa; overflow:hidden; }
+  .key span { position:relative; z-index:1; text-shadow:0 0 3px #000; text-align:center; line-height:1.1; }
+  .key span b { display:block; color:#fff; font-size:9px; }
+  .key i { position:absolute; inset:0; opacity:.95; }
+  .key.fn { box-shadow: inset 0 0 0 2px var(--acc); }
+  label { display:block; color:var(--mut); font-size:12px; margin-top:8px; }
+  input[type=color] { width:34px; height:28px; border:0; background:none; padding:0; cursor:pointer; vertical-align:middle; }
+  .swatches { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .swatches .s { display:flex; flex-direction:column; align-items:center; font-size:11px; color:var(--mut); }
+  button { background:#2b2b2b; color:var(--fg); border:1px solid #444; border-radius:6px; padding:6px 10px; cursor:pointer; }
+  button.primary { background:var(--acc); color:#000; border-color:var(--acc); }
+  button.danger { border-color:#a33; }
+  button:disabled { opacity:.5; cursor:default; }
+  .modes button.on, .fx button.on { outline:2px solid var(--acc); }
+  .fx { display:flex; flex-wrap:wrap; gap:6px; } .fx label { display:flex; align-items:center; gap:4px; background:#2b2b2b; border:1px solid #444; border-radius:6px; padding:3px 8px 3px 4px; cursor:pointer; font-size:12px; margin:0; color:var(--fg); } .fx label.on { outline:2px solid var(--acc); } .fx label.off { opacity:.55; }
+  pre { background:#000; color:#9d9; padding:8px; border-radius:6px; max-height:160px; overflow:auto; font-size:12px; margin:8px 0 0; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#333; font-size:12px; }
+  .pill.normal { background:#1f5; color:#000; } .pill.bootloader { background:#fc3; color:#000; } .pill.none { background:#555; }
+  .wheelbar { height:14px; border-radius:7px; margin-top:6px; }
+  .small { color:var(--mut); font-size:12px; }
+  table { border-collapse:collapse; font-size:12px; } td { padding:2px 8px 2px 0; vertical-align:top; } td:first-child { color:#fff; white-space:nowrap; }
+  ul { margin:6px 0; padding-left:18px; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Cascade Slim lighting <span id="dev" class="pill none">no device</span> <span id="fw" class="small"></span></h1>
+  <div class="tabs"><button data-tab="stock" class="on">Stock firmware patch</button><button data-tab="qmk">QMK build</button></div>
+
+  <!-- ================= STOCK TAB ================= -->
+  <section id="tab-stock">
+  <div class="card" style="margin-bottom:16px">
+    <div class="kb" id="kb"></div>
+    <div class="modes" style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; align-items:center">
+      <span class="small">Preview mode:</span>
+      <button data-mode="static">Static</button>
+      <button data-mode="breathe">Breathing</button>
+      <button data-mode="wave" class="on">Wave</button>
+      <button data-mode="reactive">Reactive (type or click)</button>
+      <button data-mode="rgb">Static "RGB" columns</button>
+      <span class="small" style="margin-left:auto">Colour slot: <select id="slot"></select></span>
+    </div>
+  </div>
+  <div class="row">
+    <div class="card" style="flex:1; min-width:320px">
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px"><b>Preset</b> <select id="preset"><option value="">— choose —</option></select> <span class="small">loads into the editors; Save to keep</span></div>
+      <b>Palette</b> <span class="small">(Fn+Left/Right cycles these eight)</span>
+      <div class="swatches" id="pal"></div>
+      <b style="display:block;margin-top:14px">Wheel</b> <span class="small">(Wave and the ninth "RGB" slot; 2 to 21 stops, looped)</span>
+      <div class="swatches" id="wheel"></div>
+      <div class="wheelbar" id="wheelbar"></div>
+      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap">
+        <button id="save">Save config</button>
+        <button id="reset">Reset to defaults</button>
+        <button id="build" class="primary">Build image</button>
+      </div>
+      <div class="small" id="buildinfo" style="margin-top:8px"></div>
+    </div>
+    <div class="card" style="flex:1; min-width:320px">
+      <b>Flash</b>
+      <p class="small" style="margin:6px 0">Start a job, then put the board in the bootloader. On stock firmware: back switch on USB, cable out, short the two right-most of the five pads left of the spacebar switch with tweezers, plug in while shorted, release. On QMK: hold Fn and tap Esc. The job flashes as soon as the bootloader appears and the keyboard reboots on its own.</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <button id="flash" class="primary" disabled>Flash last build</button>
+        <button id="restore" class="danger">Restore stock firmware</button>
+        <button id="cancel">Cancel job</button>
+      </div>
+      <div style="margin-top:8px"><span class="pill" id="jobphase">idle</span> <span class="small" id="jobprog"></span></div>
+      <pre id="joblog"></pre>
+      <p class="small" style="margin:10px 0 0">API for agents: <code>GET /api/state</code>, <code>PUT /api/config</code>, <code>GET /api/tables</code>, <code>POST /api/build</code>, <code>POST /api/flash</code>, <code>GET /api/qmk</code>, <code>GET /api/images</code>. See app/server.py.</p>
+    </div>
+  </div>
+  </section>
+
+  <!-- ================= QMK TAB ================= -->
+  <section id="tab-qmk" class="hidden">
+  <div class="card" style="margin-bottom:16px">
+    <div class="kb" id="kb2"></div>
+    <div id="live" style="margin-top:10px; display:flex; gap:12px; flex-wrap:wrap; align-items:center">
+      <b>On the board now:</b> <span id="liveeffect" class="pill">reading…</span>
+      <span class="small">hue <input type="range" id="livehue" min="0" max="255" style="width:90px"> sat <input type="range" id="livesat" min="0" max="255" style="width:70px"> brightness <input type="range" id="lival" min="0" max="255" style="width:90px"> speed <input type="range" id="livespeed" min="0" max="255" style="width:70px"></span>
+      <label style="margin:0"><input type="checkbox" id="mirror" checked> Preview follows the board</label>
+      <span class="small" id="liveerr"></span>
+    </div>
+    <div style="margin-top:6px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+      <label style="margin:0"><input type="checkbox" id="showfn"> Show Fn layer on the keys</label>
+      <span class="small">Type or click keys to see reactive effects respond.</span>
+    </div>
+  </div>
+  <div class="row">
+    <div class="card" style="flex:1.4; min-width:340px">
+      <b>All effects</b> <span class="small">Select one, then Preview it (on the drawing, and on the keyboard when the firmware has it) or Add it to the pack. The pack is the set compiled into the firmware and cycled with Fn+End.</span>
+      <div style="display:flex; gap:12px; margin-top:8px; flex-wrap:wrap">
+        <select id="fxlist" size="12" style="flex:1; min-width:200px; background:#111; color:var(--fg); border:1px solid #444; border-radius:6px; padding:4px"></select>
+        <div style="flex:1.2; min-width:220px">
+          <div id="fxname" style="font-weight:600"></div>
+          <p id="fxdesc" class="small" style="margin:6px 0 10px"></p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
+            <button id="fxpreview" class="primary">Preview</button>
+            <button id="fxadd">Add to pack</button>
+          </div>
+          <p class="small" id="fxlivehint" style="margin:8px 0 0"></p>
+        </div>
+      </div>
+      <b style="display:block; margin-top:14px">Pack</b> <span class="small" id="fxcount"></span>
+      <div class="fx" id="pack" style="margin-top:6px"></div>
+      <div style="margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+        <button id="savefx" class="primary">Save pack &amp; regenerate board</button>
+        <button id="allfx">Everything</button>
+        <button id="defaultfx">Defaults</button>
+      </div>
+      <p class="small" style="margin:6px 0 0">After saving: compile, then flash. Drift and Fireflies are custom and always in the pack.</p>
+    </div>
+    <div class="card" style="flex:1; min-width:300px">
+      <b>Fn layer</b>
+      <table id="fntable" style="margin-top:6px"></table>
+      <b style="display:block; margin-top:12px">Known issues</b>
+      <ul id="issues"></ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <b>Flash a QMK image</b>
+    <p class="small" style="margin:6px 0">Build with <code>qmk compile -kb azio/cascade_slim -km default</code> (see README), then pick the image. Enter the bootloader with Fn+Esc on QMK, or the pad short on stock.</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+      <select id="images"></select>
+      <button id="flashimg" class="primary">Arm flash</button>
+      <span class="pill" id="jobphase2">idle</span> <span class="small" id="jobprog2"></span>
+    </div>
+  </div>
+  </section>
+</main>
+<script>
+// ---------- keyboard drawing (used twice) ----------
+const ROWS = [
+  [["Esc",1],["F1",1],["F2",1],["F3",1],["F4",1],["F5",1],["F6",1],["F7",1],["F8",1],["F9",1],["F10",1],["F11",1],["F12",1],["PrtSc",1],["Ins",1],["Del",1]],
+  [["`",1],["1",1],["2",1],["3",1],["4",1],["5",1],["6",1],["7",1],["8",1],["9",1],["0",1],["-",1],["=",1],["Bksp",2],["Home",1]],
+  [["Tab",1.5],["Q",1],["W",1],["E",1],["R",1],["T",1],["Y",1],["U",1],["I",1],["O",1],["P",1],["[",1],["]",1],["\\",1.5],["End",1]],
+  [["Caps",1.75],["A",1],["S",1],["D",1],["F",1],["G",1],["H",1],["J",1],["K",1],["L",1],[";",1],["'",1],["Enter",2.25],["PgUp",1]],
+  [["LShift",2.25],["Z",1],["X",1],["C",1],["V",1],["B",1],["N",1],["M",1],[",",1],[".",1],["/",1],["RShift",1.75],["Up",1],["PgDn",1]],
+  [["LCtrl",1.25],["Opt",1.25],["LCmd",1.25],["Space",6.25],["RCmd",1],["Fn",1],["RCtrl",1],["Left",1],["Down",1],["Right",1]],
+];
+const MODS = new Set(['LShift','RShift','LCtrl','RCtrl','Opt','LCmd','RCmd','Fn']);
+const SHOW = { LShift:'Shift', RShift:'Shift', LCtrl:'Ctrl', RCtrl:'Ctrl', LCmd:'Cmd', RCmd:'Cmd', Space:'', Up:'↑', Down:'↓', Left:'←', Right:'→' };
+const UNITS = 15.75, GAP = 0.06;
+function buildKeyboard(container) {
+  const keys = [];
+  ROWS.forEach((row, r) => { let x = 0; row.forEach(([label, w]) => {
+    const el = document.createElement('div'); el.className = 'key';
+    el.style.left = (x / UNITS * 100) + '%'; el.style.top = (r / 6.1 * 100) + '%';
+    el.style.width = ((w - GAP) / UNITS * 100) + '%'; el.style.height = ((1 - GAP) / 6.1 * 100) + '%';
+    const shown = SHOW[label] !== undefined ? SHOW[label] : label;
+    el.innerHTML = '<i></i><span>' + shown + '</span>'; container.appendChild(el);
+    const k = { el, glow: el.firstChild, label, x: x + w / 2, y: r, w, col21: Math.min(20, Math.floor((x + w / 2) / UNITS * 21)), hit: 0, hue: null, heat: 0, lvl: 0, rising: false, px: 0 };
+    keys.push(k); el.addEventListener('mousedown', () => hit(keys, k));
+    x += w; }); });
+  return keys;
+}
+const keys = buildKeyboard(document.getElementById('kb'));
+const keys2 = buildKeyboard(document.getElementById('kb2'));
+function hit(list, k) { k.hit = 1; k.hue = Math.random(); k.heat = Math.min(1, k.heat + 0.35); k.t = performance.now(); }
+
+// ---------- shared helpers ----------
+let cfg = null, tables = null, mode = 'wave', slot = 0, t0 = performance.now(), tab = 'stock';
+const $ = id => document.getElementById(id);
+const hex2rgb = h => [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16));
+const css = ([r, g, b]) => `rgb(${r|0},${g|0},${b|0})`;
+function hsv(h, s, v) { // h,s,v in [0,1] -> rgb 0..255
+  const i = Math.floor(h * 6), f = h * 6 - i, p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  const [r, g, b] = [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]][i % 6];
+  return [r * 255, g * 255, b * 255];
+}
+let wheelRGB = [];
+function wheelSample(f) { f = ((f % 1) + 1) % 1; const k = wheelRGB.length, t = f * k, i = Math.floor(t) % k, j = (i + 1) % k, u = t - Math.floor(t);
+  return [0, 1, 2].map(c => wheelRGB[i][c] * (1 - u) + wheelRGB[j][c] * u); }
+function breathLevel(t) { const p = (t * 48) % 192; return p < 128 ? Math.pow(Math.sin(Math.PI * p / 128), 1.6) : 0; }
+
+// ---------- stock preview ----------
+function frameStock(t) {
+  const pal = cfg.palette.map(hex2rgb), base = slot < 8 ? pal[slot] : null;
+  keys.forEach(k => {
+    let c; const colColour = () => wheelSample(k.col21 / 21);
+    if (mode === 'static') c = base || colColour();
+    else if (mode === 'rgb') c = colColour();
+    else if (mode === 'breathe') { const a = breathLevel(t); c = (base || colColour()).map(v => v * a); }
+    else if (mode === 'wave') c = wheelSample(t * 0.18 + (1 - k.x / UNITS) * 0.65 + k.y * 0.025);
+    else if (mode === 'reactive') { k.hit = Math.max(0, k.hit - 0.016); const src = base || (k.hue != null ? wheelSample(k.hue) : [0, 0, 0]); c = src.map(v => v * k.hit); }
+    k.glow.style.background = css(c);
+  });
+}
+
+// ---------- QMK effect simulations (approximations of QMK's RGB Matrix effects) ----------
+let fx = 'cycle_left_right', fxHue = 0.55, fxV = 0.8, drift = null, ff = null, lastStep = 0, rainCols = null, fractal = null;
+function seedDrift() { drift = keys2.map(() => ({ h: Math.random(), rate: 1 + Math.floor(Math.random() * 4) })); }
+function frameQmk(t) {
+  const now = performance.now(), step = now - lastStep > 90; if (step) lastStep = now;
+  const S = 1, V = fxV;
+  keys2.forEach((k, i) => {
+    let c = [0, 0, 0];
+    const xf = k.x / UNITS, yf = k.y / 6;
+    const cx = 0.5, cy = 0.5, dx = xf - cx, dy = (yf - cy) * 0.6, ang = Math.atan2(dy, dx) / (2 * Math.PI) + 0.5, dist = Math.hypot(dx, dy);
+    switch (fx) {
+      case 'solid_color': c = hsv(fxHue, S, V); break;
+      case 'alphas_mods': c = MODS.has(k.label) ? hsv((fxHue + (lastLive ? lastLive.speed / 255 : 0.5)) % 1, S, V) : hsv(fxHue, S, V); break; // mods = hue + speed, like QMK
+      case 'gradient_up_down': c = hsv((fxHue + yf * 0.5) % 1, S, V); break;
+      case 'gradient_left_right': c = hsv((fxHue + xf * 0.5) % 1, S, V); break;
+      case 'band_sat': { const b = Math.max(0, 1 - Math.abs(((t * 0.5) % 1.4) - 0.2 - xf) * 4); c = hsv(fxHue, 1 - b, V); break; }
+      case 'band_val': { const b = Math.max(0, 1 - Math.abs(((t * 0.5) % 1.4) - 0.2 - xf) * 4); c = hsv(fxHue, S, V * b); break; }
+      case 'band_pinwheel_sat': c = hsv(fxHue, Math.abs(((ang + t * 0.25) % 1) - 0.5) * 2, V); break;
+      case 'band_pinwheel_val': c = hsv(fxHue, S, V * Math.abs(((ang + t * 0.25) % 1) - 0.5) * 2); break;
+      case 'band_spiral_sat': c = hsv(fxHue, Math.abs(((ang + dist * 1.5 + t * 0.25) % 1) - 0.5) * 2, V); break;
+      case 'band_spiral_val': c = hsv(fxHue, S, V * Math.abs(((ang + dist * 1.5 + t * 0.25) % 1) - 0.5) * 2); break;
+      case 'cycle_up_down': c = hsv((t * 0.15 + yf * 0.8) % 1, S, V); break;
+      case 'cycle_out_in': c = hsv((t * 0.2 - dist * 1.5 + 2) % 1, S, V); break;
+      case 'cycle_out_in_dual': { const d2 = Math.min(Math.hypot(xf - 0.25, dy), Math.hypot(xf - 0.75, dy)); c = hsv((t * 0.2 - d2 * 2 + 2) % 1, S, V); break; }
+      case 'cycle_pinwheel': c = hsv((ang + t * 0.2) % 1, S, V); break;
+      case 'cycle_spiral': c = hsv((ang + dist * 1.5 + t * 0.2) % 1, S, V); break;
+      case 'dual_beacon': c = hsv((fxHue + 0.5 * Math.sin(ang * 4 * Math.PI + t * 1.5)) % 1, S, V); break;
+      case 'rainbow_beacon': c = hsv((ang + t * 0.3) % 1, S, V * (0.5 + 0.5 * Math.cos((ang + t * 0.3) * 2 * Math.PI))); break;
+      case 'rainbow_pinwheels': { const a2 = Math.atan2(dy, xf - (xf < 0.5 ? 0.25 : 0.75)) / (2 * Math.PI); c = hsv((a2 + t * 0.3 + 1) % 1, S, V); break; }
+      case 'flower_blooming': c = hsv((fxHue + dist * 0.8 - t * 0.15 + 2) % 1, S, V); break;
+      case 'hue_pendulum': c = hsv((fxHue + 0.12 * Math.sin(t * 1.2) * (xf - 0.5) * 2) % 1, S, V); break;
+      case 'pixel_flow': { if (!k.hue) k.hue = Math.random(); c = hsv((k.hue + ((t * 0.5 + xf * 3) % 1 < 0.5 ? 0 : 0.5)) % 1, S, V * (((t * 0.6 + xf) * 2) % 1 > 0.5 ? 1 : 0.15)); break; }
+      case 'solid_reactive_wide': case 'solid_reactive_multiwide': case 'solid_reactive_cross': case 'solid_reactive_multicross': case 'solid_reactive_nexus': case 'solid_reactive_multinexus': {
+        let a = 0; keys2.forEach(o => { if (o.hit > 0) { const age = (now - o.t) / 1000, ddx = Math.abs(k.x - o.x), ddy = Math.abs(k.y - o.y);
+          let w = 0; if (fx.includes('wide')) w = Math.max(0, 1 - Math.hypot(ddx, ddy * 1.3) / 2.5); else if (fx.includes('cross')) w = (ddx < 0.6 || ddy < 0.6) ? Math.max(0, 1 - Math.hypot(ddx, ddy) / 6) : 0; else w = (ddx < 0.6 || ddy < 0.6) ? 1 : 0;
+          w *= Math.max(0, 1 - age / 1.2); if (w > a) a = w; if (age > 1.2) o.hit = 0; } });
+        c = hsv(fxHue, S, V * Math.min(1, a)); break; }
+      case 'starlight': case 'starlight_dual_hue': case 'starlight_dual_sat': { if (!k.hue) { k.hue = Math.random(); k.px = Math.random() * 6.28; } const tw = 0.5 + 0.5 * Math.sin(t * 1.5 + k.px); const h = fx === 'starlight_dual_hue' ? (k.hue < 0.5 ? fxHue : (fxHue + 0.5) % 1) : fxHue; c = hsv(h, fx === 'starlight_dual_sat' ? (k.hue < 0.5 ? 1 : 0.3) : S, V * tw); break; }
+      case 'riverflow': c = hsv(fxHue, S, V * (0.5 + 0.5 * Math.sin(t * 3 - i * 0.25))); break;
+      case 'breathing': c = hsv(fxHue, S, V * (0.5 - 0.5 * Math.cos(t * 2.2))); break;
+      case 'cycle_left_right': c = hsv((t * 0.15 + xf) % 1, S, V); break;
+      case 'cycle_all': c = hsv((t * 0.12) % 1, S, V); break;
+      case 'rainbow_moving_chevron': c = hsv((t * 0.15 + xf + Math.abs(yf - 0.5) * 0.6) % 1, S, V); break;
+      case 'hue_breathing': c = hsv((fxHue + 0.05 * Math.sin(t * 2)) % 1, S, V * (0.55 + 0.45 * Math.sin(t * 2))); break;
+      case 'hue_wave': c = hsv((fxHue + 0.08 * Math.sin(t * 2 + xf * 6)) % 1, S, V); break;
+      case 'raindrops': if (step && Math.random() < 0.03) k.hue = Math.random(); c = hsv(k.hue == null ? (k.hue = Math.random()) : k.hue, S, V); break;
+      case 'jellybean_raindrops': if (step && Math.random() < 0.03) k.hue = Math.random(); c = hsv(k.hue == null ? (k.hue = Math.random()) : k.hue, 1, V); break;
+      case 'pixel_rain': if (step && Math.random() < 0.04) { k.px = Math.random() < 0.5 ? 0 : 1; k.hue = Math.random(); } c = k.px ? hsv(k.hue || 0, S, V) : [0, 0, 0]; break;
+      case 'pixel_fractal': { if (!fractal || (step && Math.random() < 0.1)) fractal = keys2.map(() => Math.random() < 0.4); const mirror = keys2.findIndex(m => Math.abs((1 - m.x / UNITS) - xf) < 0.03 && m.y === k.y); c = (fractal[i] || (mirror >= 0 && fractal[mirror])) ? hsv(fxHue, S, V) : [0, 0, 0]; break; }
+      case 'typing_heatmap': k.heat = Math.max(0, k.heat - 0.002); c = k.heat > 0 ? hsv(0.33 - 0.33 * k.heat, S, V * Math.min(1, 0.25 + k.heat)) : [0, 0, 0]; break;
+      case 'digital_rain': { if (!rainCols) rainCols = Array.from({ length: 16 }, () => ({ y: Math.random() * 8, s: 0.6 + Math.random() })); const col = Math.min(15, Math.floor(xf * 16)); const r = rainCols[col]; if (step) { r.y += r.s * 0.35; if (r.y > 9) { r.y = -2; r.s = 0.6 + Math.random(); } } const d = r.y - k.y; c = d >= 0 && d < 3.5 ? hsv(0.33, d < 0.6 ? 0.2 : 1, V * Math.max(0, 1 - d / 3.5)) : [0, 0, 0]; break; }
+      case 'solid_reactive_simple': k.hit = Math.max(0, k.hit - 0.02); c = hsv(fxHue, S, V * k.hit); break;
+      case 'solid_reactive': k.hit = Math.max(0, k.hit - 0.02); c = hsv((fxHue + 0.5 * (1 - k.hit)) % 1, S, V * k.hit); break;
+      case 'splash': case 'multisplash': case 'solid_multisplash': {
+        let a = 0, h = fxHue;
+        keys2.forEach(o => { if (o.hit > 0) { const age = (now - o.t) / 1000, d = Math.hypot(k.x - o.x, (k.y - o.y) * 1.3), ring = age * 7; const w = Math.exp(-Math.pow(d - ring, 2) / 1.2) * Math.max(0, 1 - age / 1.6); if (w > a) { a = w; if (fx !== 'solid_multisplash') h = (fxHue + age * 0.3) % 1; } o.hit = age > 1.6 ? 0 : o.hit; } });
+        c = hsv(h, S, V * Math.min(1, a)); break; }
+      case 'drift': { if (!drift) seedDrift(); const d = drift[i]; if (step) { d.h += ((Math.random() * 8 - 3) * d.rate) / 256; const l = drift[(i + keys2.length - 1) % keys2.length].h, r = drift[(i + 1) % keys2.length].h; let avg = (l + r) / 2, diff = avg - d.h; diff -= Math.round(diff); d.h += diff / 8; if (Math.random() < 1 / 128) d.h += 0.25; d.h = ((d.h % 1) + 1) % 1; } c = hsv(d.h, S, V); break; }
+      case 'fireflies': { if (step) { if (k.lvl === 0) { if (Math.random() < 1 / 64) { k.lvl = 0.02; k.rising = true; k.hue = Math.random(); } } else if (k.rising) { k.lvl = Math.min(1, k.lvl + 0.02); if (k.lvl === 1) k.rising = false; } else k.lvl = Math.max(0, k.lvl - 0.012); } c = hsv(k.hue || 0, S, V * k.lvl); break; }
+    }
+    k.glow.style.background = css(c);
+  });
+}
+function frame() {
+  const t = (performance.now() - t0) / 1000;
+  if (tables && tab === 'stock') frameStock(t);
+  if (tab === 'qmk') frameQmk(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// keypresses light the matching key on the visible drawing
+const CODE2LABEL = { Escape:'Esc', Backquote:'`', Minus:'-', Equal:'=', Backspace:'Bksp', Tab:'Tab', BracketLeft:'[', BracketRight:']', Backslash:'\\', CapsLock:'Caps', Semicolon:';', Quote:"'", Enter:'Enter', ShiftLeft:'LShift', ShiftRight:'RShift', Comma:',', Period:'.', Slash:'/', ControlLeft:'LCtrl', ControlRight:'RCtrl', AltLeft:'Opt', AltRight:'Fn', MetaLeft:'LCmd', MetaRight:'RCmd', Space:'Space', ArrowUp:'Up', ArrowDown:'Down', ArrowLeft:'Left', ArrowRight:'Right', Home:'Home', End:'End', PageUp:'PgUp', PageDown:'PgDn', Delete:'Del', Insert:'Ins', PrintScreen:'PrtSc' };
+document.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  let label = CODE2LABEL[e.code]; if (label === undefined) { const m = /^(Key|Digit)(.)$/.exec(e.code) || /^F(\d+)$/.exec(e.code); if (m) label = m[2] !== undefined ? m[2] : 'F' + m[1]; }
+  if (label === undefined) return; e.preventDefault();
+  const list = tab === 'qmk' ? keys2 : keys; const k = list.find(k => k.label === label); if (k) hit(list, k); });
+
+// ---------- stock tab UI ----------
+function swatch(hex, onchange, onremove) {
+  const d = document.createElement('div'); d.className = 's';
+  const i = document.createElement('input'); i.type = 'color'; i.value = '#' + hex; i.oninput = () => onchange(i.value.slice(1)); d.appendChild(i);
+  if (onremove) { const b = document.createElement('button'); b.textContent = '×'; b.style.padding = '0 6px'; b.onclick = onremove; d.appendChild(b); }
+  return d;
+}
+function lerpLoop(hexes, n) { const w = hexes.map(hex2rgb), k = w.length, out = [];
+  for (let i = 0; i < n; i++) { const t = i * k / n, a = w[Math.floor(t) % k], b = w[(Math.floor(t) + 1) % k], u = t - Math.floor(t); out.push([0, 1, 2].map(c => Math.round(a[c] * (1 - u) + b[c] * u)).map(v => v.toString(16).padStart(2, '0')).join('')); }
+  return out; }
+function preview() { tables = { wheel21: lerpLoop(cfg.wheel, 21) }; wheelRGB = tables.wheel21.map(hex2rgb); $('wheelbar').style.background = 'linear-gradient(90deg,' + tables.wheel21.map(h => '#' + h).join(',') + ')'; }
+function render() {
+  $('pal').innerHTML = ''; cfg.palette.forEach((h, i) => $('pal').appendChild(swatch(h, v => { cfg.palette[i] = v; preview(); })));
+  $('wheel').innerHTML = ''; cfg.wheel.forEach((h, i) => $('wheel').appendChild(swatch(h, v => { cfg.wheel[i] = v; preview(); }, () => { if (cfg.wheel.length > 2) { cfg.wheel.splice(i, 1); render(); preview(); } })));
+  if (cfg.wheel.length < 21) { const b = document.createElement('button'); b.textContent = '+ stop'; b.onclick = () => { cfg.wheel.push(cfg.wheel[cfg.wheel.length - 1]); render(); preview(); }; $('wheel').appendChild(b); }
+  const sel = $('slot'); sel.innerHTML = ''; [...cfg.palette.map((h, i) => `${i + 1}: #${h}`), '9: RGB (wheel)'].forEach((n, i) => { const o = document.createElement('option'); o.value = i; o.textContent = n; sel.appendChild(o); }); sel.value = slot;
+}
+async function state() {
+  const s = await (await fetch('/api/state')).json();
+  const set = (id, v, cls) => { const el = $(id); if (el.textContent !== v) el.textContent = v; if (cls !== undefined && el.className !== cls) el.className = cls; };
+  set('dev', s.device.state === 'none' ? 'no device' : s.device.name, 'pill ' + s.device.state);
+  set('fw', s.device.firmware === 'qmk' ? 'running QMK: Fn+Esc enters the bootloader' : s.device.firmware === 'stock' ? 'running stock firmware: pad short enters the bootloader' : s.device.state === 'bootloader' ? 'in the bootloader, ready to flash' : '');
+  $('flash').disabled = !s.last_build;
+  if (s.last_build) set('buildinfo', `last build: ${s.last_build.path.split('/').pop()}  sha256 ${s.last_build.sha256.slice(0, 16)}…  ${s.last_build.changed_bytes} bytes differ from stock`);
+  if (s.job) { set('jobphase', s.job.phase); set('jobprog', s.job.phase === 'flashing' ? Math.round(100 * s.job.progress) + '%' : ''); set('joblog', s.job.log.join('\n')); set('jobphase2', s.job.phase); set('jobprog2', s.job.log.length ? s.job.log[s.job.log.length - 1] : ''); }
+  if (!cfg) { cfg = s.config; render(); preview(); }
+}
+document.querySelectorAll('.modes button').forEach(b => b.onclick = () => { mode = b.dataset.mode; document.querySelectorAll('.modes button').forEach(x => x.classList.toggle('on', x === b)); });
+$('slot').onchange = e => slot = +e.target.value;
+$('save').onclick = async () => { const r = await fetch('/api/config', { method: 'PUT', body: JSON.stringify(cfg) }); const j = await r.json(); if (j.error) alert(j.error); else { cfg = j.config; render(); preview(); } };
+$('reset').onclick = () => { cfg = { palette: ["ffe6b4","ff5a3c","ffaa00","a0ff14","00c8a0","32b4ff","7a3cff","ff28b4"], wheel: ["00c8a0","ff28b4","ffaa00","7a3cff","a0ff14","ff5a3c","32b4ff"] }; render(); preview(); };
+$('build').onclick = async () => { await $('save').onclick(); const j = await (await fetch('/api/build', { method: 'POST', body: '{}' })).json(); if (j.error) alert(j.error); state(); };
+$('flash').onclick = async () => { if (!confirm('Arm a flash of the last build? Then enter the bootloader (pad short on stock, Fn+Esc on QMK).')) return; const j = await (await fetch('/api/flash', { method: 'POST', body: '{}' })).json(); if (j.error) alert(j.error); state(); };
+$('restore').onclick = async () => { if (!confirm('Arm a flash of the STOCK firmware?')) return; const j = await (await fetch('/api/flash', { method: 'POST', body: JSON.stringify({ image: 'stock' }) })).json(); if (j.error) alert(j.error); state(); };
+$('cancel').onclick = () => fetch('/api/job/cancel', { method: 'POST' }).then(state);
+fetch('/api/presets').then(r => r.json()).then(p => { const s = $('preset'); Object.keys(p).forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; s.appendChild(o); });
+  s.onchange = () => { if (!s.value) return; cfg = JSON.parse(JSON.stringify(p[s.value])); render(); preview(); }; });
+
+// ---------- QMK tab UI ----------
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  $('tab-stock').classList.toggle('hidden', tab !== 'stock'); $('tab-qmk').classList.toggle('hidden', tab !== 'qmk'); if (tab === 'qmk') loadImages(); });
+let qmkInfo = null;
+fetch('/api/qmk').then(r => r.json()).then(q => { qmkInfo = q; if (q.error) return;
+  const onBoard = id => !!(q.effect_order && q.effect_order.includes(id));
+  const byId = id => q.effects.find(e => e.id === id);
+  let selected = fx;
+  const previewEffect = id => { fx = id; drift = null; rainCols = null; fractal = null; keys2.forEach(k => { k.hit = 0; k.lvl = 0; k.heat = 0; k.px = 0; }); if (liveOk && onBoard(id)) setLive({ effect: id }); };
+  const showSelected = () => { const e = byId(selected); if (!e) return; $('fxname').textContent = e.name + (e.custom ? '  (custom)' : ''); $('fxdesc').textContent = e.desc;
+    $('fxlivehint').textContent = onBoard(e.id) ? 'In the firmware on the board: Preview switches the keyboard to it.' : 'Not in the firmware on the board yet: Preview shows the drawing only. Add it to the pack, save, compile and flash to try it live.';
+    $('fxadd').textContent = e.enabled ? 'In the pack ✓' : 'Add to pack'; $('fxadd').disabled = e.enabled; };
+  const renderList = () => { const sel = $('fxlist'); sel.innerHTML = ''; q.effects.forEach(e => { const o = document.createElement('option'); o.value = e.id; o.textContent = (onBoard(e.id) ? '● ' : '○ ') + e.name + (e.enabled ? '  [pack]' : ''); if (e.id === selected) o.selected = true; sel.appendChild(o); }); };
+  const renderPack = () => { const d = $('pack'); d.innerHTML = ''; q.effects.filter(e => e.enabled).forEach(e => { const l = document.createElement('label'); l.className = e.id === fx ? 'on' : ''; l.textContent = e.name;
+      if (!e.custom) { const x = document.createElement('button'); x.textContent = '×'; x.title = 'remove from pack'; x.style.padding = '0 6px'; x.style.marginLeft = '6px'; x.onclick = ev => { ev.stopPropagation(); e.enabled = false; renderAll(); }; l.appendChild(x); }
+      l.onclick = () => { selected = e.id; previewEffect(e.id); renderAll(); }; d.appendChild(l); });
+    $('fxcount').textContent = q.effects.filter(e => e.enabled).length + ' effects in the pack'; };
+  const renderAll = () => { renderList(); renderPack(); showSelected(); };
+  const renderFx = renderAll;
+  $('fxlist').onchange = e => { selected = e.target.value; showSelected(); };
+  $('fxlist').ondblclick = () => { previewEffect(selected); renderAll(); };
+  $('fxpreview').onclick = () => { previewEffect(selected); renderAll(); };
+  $('fxadd').onclick = () => { const e = byId(selected); if (e) { e.enabled = true; renderAll(); } };
+  renderAll();
+  const tb = $('fntable'); const order = ROWS.flat().map(r => r[0]);
+  order.filter(l => q.fn[l]).forEach(l => { const tr = document.createElement('tr'); tr.innerHTML = `<td>Fn + ${SHOW[l] !== undefined && SHOW[l] !== '' ? SHOW[l] : l}</td><td>${q.fn[l].does}</td>`; tb.appendChild(tr); });
+  q.known_issues.forEach(i => { const li = document.createElement('li'); li.textContent = i; $('issues').appendChild(li); });
+  $('showfn').onchange = e => keys2.forEach(k => { const f = q.fn[k.label]; k.el.classList.toggle('fn', e.target.checked && !!f);
+    const shown = SHOW[k.label] !== undefined ? SHOW[k.label] : k.label; k.el.querySelector('span').innerHTML = e.target.checked && f ? shown + '<b>' + f.does.split(' ').slice(0, 2).join(' ') + '</b>' : shown; });
+});
+async function loadImages() { const imgs = await (await fetch('/api/images')).json(); const s = $('images'); s.innerHTML = '';
+  imgs.forEach(i => { const o = document.createElement('option'); o.value = i.name; o.textContent = `${i.name}  (${i.kind}, ${new Date(i.mtime * 1000).toLocaleTimeString()}, ${i.sha256})`; s.appendChild(o); }); }
+$('flashimg').onclick = async () => { const name = $('images').value; if (!name) return; if (!confirm(`Arm a flash of ${name}? Then Fn+Esc (QMK) or the pad short (stock).`)) return;
+  const j = await (await fetch('/api/flash', { method: 'POST', body: JSON.stringify({ image: name }) })).json(); if (j.error) alert(j.error); state(); };
+state(); setInterval(state, 1000);
+let liveOk = false, liveBusy = false, lastLive = null;
+async function pollLive() { if (tab !== 'qmk' || liveBusy || document.hidden) return; try { const l = await (await fetch('/api/live')).json();
+    if (l.error) { liveOk = false; $('liveeffect').textContent = 'not readable'; $('liveerr').textContent = l.error.includes('VIA') ? 'needs a build with VIA (compile + flash the current board definition)' : l.error; return; }
+    liveOk = true; $('liveerr').textContent = ''; lastLive = l; $('liveeffect').textContent = l.effect_name + '  (#' + l.effect + ')';
+    if (document.activeElement.type !== 'range') { $('livehue').value = l.hue; $('livesat').value = l.sat; $('lival').value = l.val; $('livespeed').value = l.speed; }
+    if ($('mirror').checked) { fxHue = l.hue / 255; fxV = Math.max(0.15, l.val / 255); if (l.effect_name !== fx && qmkInfo && qmkInfo.effects.some(e => e.id === l.effect_name)) { fx = l.effect_name; document.querySelectorAll('#pack label').forEach(x => x.classList.toggle('on', x.firstChild && x.firstChild.textContent === (qmkInfo.effects.find(e => e.id === fx) || {}).name)); $('fxdesc').textContent = (qmkInfo.effects.find(e => e.id === fx) || {}).desc || ''; } }
+  } catch (e) { liveOk = false; } }
+async function setLive(body) { liveBusy = true; try { const r = await (await fetch('/api/live', { method: 'PUT', body: JSON.stringify(body) })).json(); if (r.error) $('liveerr').textContent = r.error; else lastLive = r; } finally { liveBusy = false; } }
+[['livehue', 'hue'], ['livesat', 'sat'], ['lival', 'val'], ['livespeed', 'speed']].forEach(([id, k]) => { $(id).onchange = e => setLive({ [k]: +e.target.value }); });
+setInterval(pollLive, 4000); pollLive();
+if (location.hash === '#qmk') document.querySelector('.tabs button[data-tab=qmk]').click();
+</script>
+</body>
+</html>

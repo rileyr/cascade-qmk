@@ -1,0 +1,20 @@
+# SonixQMK checkout (set up by setup.sh; the board definition is linked in from qmk/)
+qmk_firmware/
+# local toolchains and analysis environments
+.venv/
+tools/arm-gnu-toolchain/
+tools/ghidra_*/
+tools/ghidra_proj/
+# proprietary inputs (fetched locally by stock/extract_stock.py) and derived images
+stock/*.bin
+stock/*.rar
+stock/*.exe
+stock/*.pdf
+out/
+# per-user state and noise
+app/config.json
+app/effects.json
+__pycache__/
+*.pyc
+.DS_Store
+server.log

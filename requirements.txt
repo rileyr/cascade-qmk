@@ -1,0 +1,3 @@
+hid>=1.0.5          # Python binding for hidapi (brew install hidapi / apt install libhidapi-hidraw0)
+qmk>=1.1            # QMK CLI, used for lint and compile
+capstone>=5.0       # optional: tools/disasm.py and tools/gpio_scan.py

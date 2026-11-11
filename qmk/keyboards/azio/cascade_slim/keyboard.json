@@ -7,8 +7,8 @@
     "bootloader": "sn32-dfu",
     "board": "SN_SN32F240B_PWM",
     "usb": {
-        "vid": "0x05AC",
-        "pid": "0x024F",
+        "vid": "0xFEED",
+        "pid": "0xCA5C",
         "device_version": "0.0.1"
     },
     "matrix_pins": {

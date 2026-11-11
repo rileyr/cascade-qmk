@@ -178,7 +178,7 @@ def main():
         "keyboard_name": "Cascade Slim", "manufacturer": "AZIO", "maintainer": "riley",
         "url": "https://github.com/rileyr/cascade-qmk",
         "processor": "SN32F248BF", "bootloader": "sn32-dfu", "board": "SN_SN32F240B_PWM",
-        "usb": {"vid": "0x05AC", "pid": "0x024F", "device_version": "0.0.1"},
+        "usb": {"vid": "0xFEED", "pid": "0xCA5C", "device_version": "0.0.1"},  # not Apple's IDs: the stock firmware spoofs them, this build does not
         "matrix_pins": {"rows": ["C15", "D11", "D10", "D9", "D8", "D7"],
                         "cols": ["B7", "B6", "B5", "B4", "B3", "B2", "B1", "B0", "A15", "A14", "A13", "A12", "A11", "A10", "A9", "A8"]},
         "diode_direction": "COL2ROW",

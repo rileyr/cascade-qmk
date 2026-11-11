@@ -136,8 +136,9 @@ def device():
     if bl:
         return {"state": "bootloader", "name": cf.BOOTLOADERS[(bl["vendor_id"], bl["product_id"])]}
     for d in cf.hid.enumerate():
-        if (d["vendor_id"], d["product_id"]) == cf.CASCADE:
-            kind = "qmk" if "Slim" in (d["product_string"] or "") else "stock"
+        key = (d["vendor_id"], d["product_id"])
+        if key in (cf.CASCADE, cf.CASCADE_QMK):
+            kind = "qmk" if key == cf.CASCADE_QMK or "Slim" in (d["product_string"] or "") else "stock"
             return {"state": "normal", "name": d["product_string"], "firmware": kind}
     return {"state": "none", "name": None, "firmware": None}
 

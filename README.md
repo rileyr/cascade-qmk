@@ -34,8 +34,8 @@ electrically a near twin of the Keychron K2. So this repo gives you two things:
 - **Azio's firmware is not in this repo.** `stock/extract_stock.py` downloads Azio's own public
   updater from their support site and extracts the image on your machine.
 - **Don't flash this to any other keyboard.** Pin assignments are specific to this PCB.
-- The board uses Apple's USB vendor ID for Mac media keys; the QMK build keeps that so the Mac
-  treats it the same way.
+- The stock firmware presents itself as an Apple keyboard (Apple's USB vendor ID). The QMK build
+  does not: it uses 0xFEED:0xCA5C, the usual convention for hobby firmware. Macs are fine with it.
 
 ## Quick start
 

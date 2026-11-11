@@ -28,7 +28,8 @@ import hid
 BOOTLOADERS = {(0x0C45, 0x7040): "SN32F248B bootloader (offset 0)",
                (0x0C45, 0x7900): "SN32F248 bootloader (offset 0)",
                (0x0C45, 0x7010): "SN32F268F bootloader (offset 0x200)"}
-CASCADE = (0x05AC, 0x024F)
+CASCADE = (0x05AC, 0x024F)        # stock firmware (spoofs an Apple keyboard)
+CASCADE_QMK = (0xFEED, 0xCA5C)    # this QMK build
 CMD_INIT, CMD_PREPARE, CMD_REBOOT = 0x55AA01, 0x55AA05, 0x55AA07
 EXPECTED_STATUS = 0xFAFAFAFA
 FLASH_SIZE = 64 * 1024
@@ -66,9 +67,9 @@ def cmd_list(a):
     seen = False
     for d in hid.enumerate():
         key = (d["vendor_id"], d["product_id"])
-        if key in BOOTLOADERS or key == CASCADE:
+        if key in BOOTLOADERS or key in (CASCADE, CASCADE_QMK):
             seen = True
-            what = BOOTLOADERS.get(key, "Cascade, normal firmware")
+            what = BOOTLOADERS.get(key, "Cascade, QMK" if key == CASCADE_QMK or "Slim" in (d["product_string"] or "") else "Cascade, stock firmware")
             print(f"{key[0]:04x}:{key[1]:04x} if{d['interface_number']} {what}  {d['product_string']!r}")
     if not seen:
         print("no Cascade and no Sonix bootloader on USB")

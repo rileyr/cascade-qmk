@@ -18,7 +18,7 @@ import sys
 import hid
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VID, PID = 0x05AC, 0x024F
+IDS = {(0xFEED, 0xCA5C), (0x05AC, 0x024F)}  # this QMK build; older builds kept the stock IDs
 CH = 3
 GET, SET, SAVE = 0x08, 0x07, 0x09
 BRIGHT, EFFECT, SPEED, COLOR = 1, 2, 3, 4
@@ -37,7 +37,7 @@ def effect_order():
 
 def open_raw():
     for d in hid.enumerate():
-        if d["vendor_id"] == VID and d["product_id"] == PID and d.get("usage_page") == 0xFF60 and d.get("usage") == 0x61:
+        if (d["vendor_id"], d["product_id"]) in IDS and d.get("usage_page") == 0xFF60 and d.get("usage") == 0x61:
             if hasattr(hid, "Device"):
                 return hid.Device(path=d["path"])
             dev = hid.device()

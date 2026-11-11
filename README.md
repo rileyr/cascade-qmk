@@ -63,6 +63,20 @@ two right-most of the five pads left of the switch with tweezers, and plug in wh
 **on QMK** hold Fn and tap Esc. The job flashes and the board reboots. The web app does the same
 with buttons.
 
+## Where the stock firmware comes from, and how to go back
+
+Nothing in this repo contains Azio's firmware. Azio publishes a Windows updater on their
+support site; it is Sonix's flashing tool with the complete 64 KB firmware image embedded
+inside the `.exe` as a resource. `stock/extract_stock.py` downloads that updater from Azio's
+URL, extracts the image, checks its hash against the one this project was built with, and
+saves it as `stock/cascade_v15_sn32.bin` on your machine. Only the URL, the resource
+location and the expected hash are hard-coded.
+
+Restoring stock firmware flashes that local file, with Bluetooth and everything else exactly
+as Azio shipped it: `tools/cascade_flash.py flash stock/cascade_v15_sn32.bin`, or the
+"Restore stock firmware" button in the app. The bootloader is in ROM and is not the stock
+firmware, so you do need the extracted image to go back.
+
 ## The web app
 
 ![Stock tab](docs/ui-stock.png)

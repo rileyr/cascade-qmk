@@ -32,7 +32,8 @@ electrically a near twin of the Keychron K2. So this repo gives you two things:
 - **This rewrites your keyboard's firmware.** It has worked on one board, mine. The ROM
   bootloader cannot be overwritten, so a bad flash is recoverable, but you accept the risk.
 - **Azio's firmware is not in this repo.** `stock/extract_stock.py` downloads Azio's own public
-  updater from their support site and extracts the image on your machine.
+  updater from their support site and extracts the image on your machine. **The flasher and the
+  app refuse to flash anything until that image exists locally**, so the way back is always there.
 - **Don't flash this to any other keyboard.** Pin assignments are specific to this PCB.
 - The stock firmware presents itself as an Apple keyboard (Apple's USB vendor ID). The QMK build
   does not: it uses 0xFEED:0xCA5C, the usual convention for hobby firmware. Macs are fine with it.
@@ -42,7 +43,7 @@ electrically a near twin of the Keychron K2. So this repo gives you two things:
 ```
 git clone <this repo> && cd cascade-qmk
 ./setup.sh                                   # venv, SonixQMK checkout, board link
-python3 stock/extract_stock.py               # optional: the stock image for the colour patch
+                                             # (setup also fetches Azio's stock image: flashing refuses to run without it)
 .venv/bin/python app/server.py               # http://127.0.0.1:8765
 ```
 

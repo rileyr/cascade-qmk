@@ -19,6 +19,7 @@ Usage:
   cascade_flash.py flash image.bin           # real flash, asks for "FLASH"
 """
 import argparse
+import os
 import struct
 import sys
 import time
@@ -149,7 +150,23 @@ def flash_image(fw, offset=0, dry_run=False, log=print, progress=None):
         dev.close()
 
 
+STOCK = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "stock", "cascade_v15_sn32.bin")
+
+
+def recovery_check(image_path, override=False):
+    """Refuse to flash anything but the stock image unless the stock image is on disk:
+    it is the only way back to a working keyboard with Bluetooth."""
+    if os.path.abspath(image_path) == os.path.abspath(STOCK) or os.path.exists(STOCK) or override:
+        return
+    raise FlashError("no stock firmware image at stock/cascade_v15_sn32.bin. Run stock/extract_stock.py first so you can "
+                     "always restore the keyboard; or pass --no-recovery-check if you keep your own copy")
+
+
 def cmd_flash(a):
+    try:
+        recovery_check(a.image, a.no_recovery_check)
+    except FlashError as e:
+        sys.exit(str(e))
     fw = open(a.image, "rb").read()
     try:
         check_image_ok(fw, a.offset)
@@ -174,6 +191,7 @@ def main():
     s = sub.add_parser("flash"); s.add_argument("image"); s.add_argument("--offset", type=lambda v: int(v, 0), default=0)
     s.add_argument("--dry-run", action="store_true")
     s.add_argument("--yes", action="store_true", help="skip the typed FLASH confirmation (for unattended runs)")
+    s.add_argument("--no-recovery-check", action="store_true", help="flash even without the stock image on disk (you keep your own backup)")
     s.set_defaults(fn=cmd_flash)
     a = p.parse_args(); a.fn(a)
 

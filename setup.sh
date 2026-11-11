@@ -16,6 +16,11 @@ ln -s "$PWD/qmk/keyboards/azio/cascade_slim" qmk_firmware/keyboards/azio/cascade
 
 .venv/bin/python tools/gen_board.py
 
+# Safety: fetch Azio's stock firmware image so every flash is reversible. Flashing refuses to run without it.
+if [ ! -f stock/cascade_v15_sn32.bin ]; then
+  .venv/bin/python stock/extract_stock.py || echo "WARNING: could not fetch the stock image; flashing will refuse until stock/cascade_v15_sn32.bin exists"
+fi
+
 if ! command -v arm-none-eabi-gcc >/dev/null || ! echo '#include <stdint.h>' | arm-none-eabi-gcc -E - >/dev/null 2>&1; then
   cat <<'MSG'
 
@@ -25,6 +30,5 @@ Unpack it to tools/arm-gnu-toolchain and prepend tools/arm-gnu-toolchain/bin to 
 MSG
 fi
 echo
-echo "Next: python3 stock/extract_stock.py   (optional, for the stock-firmware patches)"
 echo "      .venv/bin/python app/server.py    (web app on http://127.0.0.1:8765)"
 echo "      cd qmk_firmware && ../.venv/bin/qmk compile -kb azio/cascade_slim -km default"

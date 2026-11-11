@@ -289,6 +289,10 @@ class H(BaseHTTPRequestHandler):
                 img = os.path.join(OUT, img)
             if not img or not os.path.exists(img):
                 return self._json(400, {"error": "no image; build first or pass {'image': 'stock'}"})
+            try:
+                cf.recovery_check(img, bool(body.get("no_recovery_check")))
+            except cf.FlashError as e:
+                return self._json(400, {"error": str(e)})
             with lock:
                 if state["job"] and state["job"]["phase"] in ("waiting", "flashing"):
                     return self._json(409, {"error": "a flash job is already running"})
